@@ -58,8 +58,8 @@ jobs:
         uses: docker/build-push-action@v2
         if: steps.img_check.outputs.image_exists_wordpress == 0
         with:
-          context: ./nginx
-          file: ./nginx/wordpress/Dockerfile
+          context: ./wordpress
+          file: ./wordpress/Dockerfile
           push: true
           tags: ${{ secrets.ACR_NAME }}/stateless-wordpress:latest
 

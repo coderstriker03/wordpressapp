@@ -1,0 +1,102 @@
+name: Build production images
+
+on:
+  push:
+
+jobs:
+  build_push_images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Docker
+        run: |
+          az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Set outputs
+        id: vars
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Look for existing images
+        id: img_check
+        env:
+          ACR_NAME: ${{ secrets.ACR_NAME }}
+          TAG: ${{ steps.vars.outputs.sha_short }}
+        run: |
+          IMAGE_EXISTS_NGINX=$(az acr repository show-tags --name $ACR_NAME --repository stateless-nginx | grep $TAG | wc -l)
+          IMAGE_EXISTS_WORDPRESS=$(az acr repository show-tags --name $ACR_NAME --repository stateless-wordpress | grep $TAG | wc -l)
+          echo "::set-output name=image_exists_nginx::$IMAGE_EXISTS_NGINX"
+          echo "::set-output name=image_exists_wordpress::$IMAGE_EXISTS_WORDPRESS"
+
+      - name: Check outputs
+        run: |
+          echo "nginx tag ${{ steps.vars.outputs.sha_short }} exists ${{ steps.img_check.outputs.image_exists_nginx }}"
+          echo "wordpress tag ${{ steps.vars.outputs.sha_short }} exists ${{ steps.img_check.outputs.image_exists_wordpress }}"
+
+      - name: Build and push nginx image
+        id: docker_build_nginx
+        uses: docker/build-push-action@v2
+        if: steps.img_check.outputs.image_exists_nginx == 0
+        with:
+          context: ./nginx
+          file: ./nginx/Dockerfile
+          push: true
+          tags: ${{ secrets.ACR_NAME }}/stateless-nginx:latest
+
+      - name: Build and push wordpress image
+        id: docker_build_wordpress
+        uses: docker/build-push-action@v2
+        if: steps.img_check.outputs.image_exists_wordpress == 0
+        with:
+          context: ./nginx
+          file: ./nginx/wordpress/Dockerfile
+          push: true
+          tags: ${{ secrets.ACR_NAME }}/stateless-wordpress:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build_push_images
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Helm tool installer
+        uses: Azure/setup-helm@v3
+
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS Credentials
+        uses: Azure/aks-set-context@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          resource-group: k8s
+          cluster-name: k8s-qa-clusteccr
+
+      - name: Set outputs
+        id: vars
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Check outputs
+        run: echo ${{ steps.vars.outputs.sha_short }}
+
+      - name: Run Helm Deploy
+        run: |
+          helm upgrade \
+            --install \
+            --atomic \
+            --wait \
+            wordpress-deployment \
+            ./.helm \

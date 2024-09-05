@@ -1,0 +1,4 @@
+apiVersion: v2
+name: wordpress-deployment
+description: A Helm chart for wordpress deployment
+version: 0.1.0

@@ -1,0 +1,37 @@
+image:
+  registry: regask
+  name: anImageHasNoName
+  tag: latest
+
+app:
+  name: app-name
+  port: 80
+
+db:
+  connectionString: connectionstring
+
+dns:
+  prefix: devapi
+  zone: regask.com
+
+telemetry:
+  key: null
+
+service:
+  domain: null
+
+attachments:
+  expireTime: 30
+  mode: null
+  internal:
+    credentials:
+      id: null
+      key: null
+
+document:
+  creds: null
+  codeGenUrl: https://identity.document360.io/jwt/generateCode
+  authorizeUrl: https://library.regask.com/jwt/authorize?code=
+
+zendesk:
+  secretKey: null

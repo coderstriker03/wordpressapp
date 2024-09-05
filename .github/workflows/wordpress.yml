@@ -98,5 +98,6 @@ jobs:
             --install \
             --atomic \
             --wait \
+            --namespace ingresses \
             wordpress-deployment \
             ./.helm \
